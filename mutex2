@@ -1,0 +1,112 @@
+package Semaphores_Mutex;
+
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+
+class SharedBufferMutex {
+    static final int BUFFER_SIZE = 5;
+    int[] buffer = new int[BUFFER_SIZE];
+    int in = 0, out = 0, count = 0; // count keeps track of filled slots
+
+    // Mutex lock for mutual exclusion
+    private final Lock mutex = new ReentrantLock();
+
+    // Producer adds item to buffer
+    public void produce(int item) throws InterruptedException {
+        while (true) {
+            mutex.lock(); // acquire lock before accessing buffer
+            try {
+                // Check if buffer is full
+                if (count < BUFFER_SIZE) {
+                    buffer[in] = item;
+                    in = (in + 1) % BUFFER_SIZE;
+                    count++;
+                    System.out.println("Producer produced: " + item);
+                    return; // done producing
+                } else {
+                    System.out.println("Buffer full. Producer waiting...");
+                }
+            } finally {
+                mutex.unlock(); // release lock even if error occurs
+            }
+            Thread.sleep(500); // wait and retry
+        }
+    }
+
+    // Consumer removes item from buffer
+    public int consume() throws InterruptedException {
+        while (true) {
+            mutex.lock(); // acquire lock before accessing buffer
+            try {
+                // Check if buffer has items
+                if (count > 0) {
+                    int item = buffer[out];
+                    out = (out + 1) % BUFFER_SIZE;
+                    count--;
+                    System.out.println("Consumer consumed: " + item);
+                    return item;
+                } else {
+                    System.out.println("Buffer empty. Consumer waiting...");
+                }
+            } finally {
+                mutex.unlock(); // release lock
+            }
+            Thread.sleep(500); // wait and retry
+        }
+    }
+}
+
+// Producer thread
+class ProducerMutex extends Thread {
+    SharedBufferMutex buffer;
+
+    public ProducerMutex(SharedBufferMutex buffer) {
+        this.buffer = buffer;
+    }
+
+    public void run() {
+        int item = 0;
+        try {
+            while (true) {
+                buffer.produce(item);
+                item++;
+                Thread.sleep(400); // simulate production time
+            }
+        } catch (InterruptedException e) {
+            System.out.println("Producer interrupted.");
+        }
+    }
+}
+
+// Consumer thread
+class ConsumerMutex extends Thread {
+    SharedBufferMutex buffer;
+
+    public ConsumerMutex(SharedBufferMutex buffer) {
+        this.buffer = buffer;
+    }
+
+    public void run() {
+        try {
+            while (true) {
+                buffer.consume();
+                Thread.sleep(700); // simulate consumption time
+            }
+        } catch (InterruptedException e) {
+            System.out.println("Consumer interrupted.");
+        }
+    }
+}
+
+// Main class
+public class ProducerConsumerMutex {
+    public static void main(String[] args) {
+        SharedBufferMutex buffer = new SharedBufferMutex();
+
+        ProducerMutex producer = new ProducerMutex(buffer);
+        ConsumerMutex consumer = new ConsumerMutex(buffer);
+
+        producer.start();
+        consumer.start();
+    }
+}
